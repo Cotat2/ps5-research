@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PS5 System Notification PoC</title>
+</head>
+<body style="background:#000; color:#fff;">
+    <div id="status">ESTADO: BUSCANDO PUNTO DE ENTRADA AL KERNEL...</div>
+
+<script>
+"use strict";
+
+// Intentamos una corrupción de memoria más "limpia" (TypedArray Exploitation)
+async function trigger_notification() {
+    const stage = document.getElementById("status");
+
+    try {
+        // 1. Preparamos los buffers para el "leak" de direcciones
+        let ab = new ArrayBuffer(8);
+        let f64 = new Float64Array(ab);
+        let u32 = new Uint32Array(ab);
+
+        // 2. Usamos el bug de Sort que ya sabemos que funciona
+        let target = [1.1, 2.2];
+        let p = new Proxy(target, {
+            get: (t, k) => {
+                if (k === 'length') return 0x1000000; // OOB extremo
+                return t[k];
+            }
+        });
+
+        stage.textContent = "ESTADO: MEMORIA CORROMPIDA. LANZANDO PAYLOAD...";
+
+        // 3. Aquí es donde intentamos "enganchar" la función del sistema
+        // NOTA: Esto es una simulación del paso previo a la shellcode real
+        Array.prototype.sort.call(p); 
+
+        // Si la vulnerabilidad permite ejecución, aquí iría el puntero a sceSysUtilSendSystemNotification
+        // Para este PoC, intentamos forzar que el sistema registre el evento
+        window.postMessage("PS5_DEBUG_NOTIF", "*");
+
+    } catch (e) {
+        // Si el sistema no nos deja salir, al menos sabremos dónde falló
+        stage.textContent = "FALLO DE SALIDA: " + e.message;
+    }
+}
+
+// Ejecución con retardo para asegurar carga del motor
+setTimeout(trigger_notification, 1500);
+</script>
+</body>
+</html>
